@@ -1,9 +1,15 @@
 {
   "name": "decky-sbox",
-  "version": "0.0.1",
-  "description": "Decky sing-box plugin",
+  "version": "0.1.0",
+  "description": "A Decky plugin for Singbox.",
+  "type": "module",
+  "remote_binary": {
+    "name": "sing-box",
+    "url": "https://github.com/SagerNet/sing-box/releases/download/v1.9.3/sing-box-1.9.3-linux-amd64.tar.gz",
+    "sha256hash": "76be005265322f1e9600529cca8c247a09eb1f5454c926c4280bc392dafd2fb9"
+  },
   "scripts": {
-    "build": "shx rm -rf dist && rollup -c",
+    "build": "rollup -c",
     "watch": "rollup -c -w",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -14,33 +20,30 @@
   "keywords": [
     "decky",
     "plugin",
-    "plugin-template",
     "steam-deck",
-    "deck"
+    "deck",
+    "zerotier"
   ],
-  "author": "Jonas Dellinger <jonas@dellinger.dev>",
+  "author": "Xtremer <xtremer@gmail.com>",
   "license": "BSD-3-Clause",
   "bugs": {
-    "url": "https://github.com/ljm625/decky-sbox.git/issues"
+    "url": "https://github.com/ljm625/decky-sbox/issues"
   },
-  "homepage": "https://github.com/ljm625/decky-sbox.git#readme",
+  "homepage": "https://github.com/ljm625/decky-sbox#readme",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^21.1.0",
-    "@rollup/plugin-json": "^4.1.0",
-    "@rollup/plugin-node-resolve": "^13.3.0",
-    "@rollup/plugin-replace": "^4.0.0",
-    "@rollup/plugin-typescript": "^8.3.3",
-    "@types/react": "16.14.0",
-    "@types/webpack": "^5.28.0",
-    "rollup": "^2.77.1",
-    "rollup-plugin-import-assets": "^1.1.1",
-    "shx": "^0.3.4",
-    "tslib": "^2.4.0",
-    "typescript": "^4.7.4"
+    "@decky/rollup": "^1.0.1",
+    "@rollup/rollup-linux-x64-musl": "^4.20.0",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "@types/webpack": "^5.28.5",
+    "rollup": "^4.18.0",
+    "typescript": "^5.5.3"
   },
   "dependencies": {
-    "decky-frontend-lib": "^3.24.5",
-    "react-icons": "^4.4.0"
+    "@decky/api": "^1.1.0",
+    "@decky/ui": "^4.7.0",
+    "react-icons": "^5.2.1",
+    "tslib": "^2.6.3"
   },
   "pnpm": {
     "peerDependencyRules": {
