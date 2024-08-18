@@ -210,8 +210,7 @@ class Plugin:
         "tag": "tun-in",
         "interface_name": "tun0",
         "address": [
-            "172.18.0.1/30",
-            "fdfe:dcba:9876::1/126"
+            "172.18.0.1/30"
         ],
         "mtu": 9000,
         "gso": True,
@@ -220,8 +219,6 @@ class Plugin:
         "route_address": [
             "0.0.0.0/1",
             "128.0.0.0/1",
-            "::/1",
-            "8000::/1"
         ],
         "route_exclude_address": [
             "192.168.0.0/16",
