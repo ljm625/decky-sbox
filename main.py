@@ -33,7 +33,9 @@ class Plugin:
         enabled = self.get_setting("enable",False)
         if enabled:
             decky.logger.info('Starting Sing-box on startup...')
-            await self.start_singbox()
+            status = await self.info()
+            if status["online"] == False:
+                await self.start_singbox()
         else:
             decky.logger.info('Stop Sing-box on startup...')
             await self.stop_singbox()
@@ -210,7 +212,8 @@ class Plugin:
         "tag": "tun-in",
         "interface_name": "tun0",
         "address": [
-            "172.18.0.1/30"
+            "172.18.0.1/30",
+            "fdfe:dcba:9876::1/126"
         ],
         "mtu": 9000,
         "gso": True,
@@ -219,11 +222,14 @@ class Plugin:
         "route_address": [
             "0.0.0.0/1",
             "128.0.0.0/1",
+            "::/1",
+            "8000::/1"
         ],
         "route_exclude_address": [
             "192.168.0.0/16",
             "fc00::/7"
         ],
+        "sniff":True,
         "stack": "system",
         "platform": {
             "http_proxy": {
