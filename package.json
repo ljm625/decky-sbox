@@ -5,8 +5,8 @@
   "type": "module",
   "remote_binary": {
     "name": "sing-box",
-    "url": "https://github.com/SagerNet/sing-box/releases/download/v1.9.3/sing-box-1.9.3-linux-amd64.tar.gz",
-    "sha256hash": "76be005265322f1e9600529cca8c247a09eb1f5454c926c4280bc392dafd2fb9"
+    "url": "https://github.com/SagerNet/sing-box/releases/download/v1.10.0-alpha.29/sing-box-1.10.0-alpha.29-linux-amd64.tar.gz",
+    "sha256hash": "749ef0f51c6ae464e3f65fd20958cac59e046ff0e763c81e02013b02362f5b56"
   },
   "scripts": {
     "build": "rollup -c",

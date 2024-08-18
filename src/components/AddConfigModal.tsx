@@ -1,16 +1,15 @@
 import { callable, toaster } from "@decky/api";
 import { ConfirmModal, DialogBody, Focusable, TextField, Field } from "@decky/ui";
-import { Network } from "../model";
 import { useState } from "react";
 
 const AddConfigModal: React.FC<{ closeModal: () => void }> = ({ closeModal }) => {
-  const downloadConfig = callable<[string], boolean>("download_config");
+  const downloadConfig = callable<[string,string], boolean>("download_config");
   const [configName, setConfigName] = useState<string>("config");
-  const [netID, setNetID] = useState<string>("abcde");
+  const [configURL, setConfigURL] = useState<string>("abcde");
   const [bOKDisabled, setBOKDisabled] = useState<boolean>(true);
   
   const handleOnChange = () => {
-    if( netID.trim().startsWith("http") && configName.trim().length>0){
+    if( configURL.trim().startsWith("http") && configName.trim().length>0){
       setBOKDisabled(false)
     } else{
       setBOKDisabled(true)
@@ -26,8 +25,8 @@ const AddConfigModal: React.FC<{ closeModal: () => void }> = ({ closeModal }) =>
       bOKDisabled={bOKDisabled}
       onCancel={closeModal}
       onOK={() => {
-        downloadConfig(netID)
-        toaster.toast({ title: "Downloading configuration...", body: netID });
+        downloadConfig(configName,configURL)
+        toaster.toast({ title: "Downloading configuration...", body: configURL });
         closeModal();
       }}
 
@@ -47,7 +46,7 @@ const AddConfigModal: React.FC<{ closeModal: () => void }> = ({ closeModal }) =>
           <TextField
             spellCheck="false"
             onChange={(evt) => {
-              setNetID(evt.target.value);
+              setConfigURL(evt.target.value);
               handleOnChange();
             }}
           />

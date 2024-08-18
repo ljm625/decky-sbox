@@ -32,6 +32,8 @@ bower_components
 .DS_Store
 Thumbs.db
 
+# Ignore binaries
+bin/
 # Ignore built ts files
 dist/
 

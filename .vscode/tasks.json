@@ -60,6 +60,19 @@
             "problemMatcher": []
         },
         {
+            "label": "cleanup",
+            "detail": "cleanup before deploy",
+            "type": "shell",
+            "group": "none",
+            "dependsOn": [
+                "createfolders",
+                "chmodfolders"
+            ],
+            "command": "ssh deck@${config:deckip} -p ${config:deckport} ${config:deckkey} \"echo '${config:deckpass}' | sudo -S rm -rf ${config:deckdir}/homebrew/plugins/${workspaceFolderBasename}/bin\"",
+            "problemMatcher": []
+        },
+
+        {
             "label": "deploy",
             "detail": "Deploy dev plugin to deck",
             "type": "shell",
@@ -84,6 +97,7 @@
             "dependsOrder": "sequence",
             "group": "none",
             "dependsOn": [
+                "cleanup",
                 "deploy",
                 "chmodfolders"
             ],
@@ -94,6 +108,7 @@
             "dependsOrder": "sequence",
             "group": "none",
             "dependsOn": [
+                "cleanup",
                 "deploy",
                 "chmodfolders",
                 "restartdecky"

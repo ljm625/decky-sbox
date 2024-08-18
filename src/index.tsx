@@ -3,20 +3,23 @@ import {
   PanelSectionRow,
   showModal,
   DialogButton,
-  ShowModalResult
+  ShowModalResult,
+  ToggleField,
+  Navigation
 } from "@decky/ui";
 
 import { callable, definePlugin } from '@decky/api';
 
 import { useEffect, useState } from "react";
 
-import { Network, NodeStatus } from "./model";
+import { ConfigStatus, RunStatus } from "./model";
 import AddConfigModal from "./components/AddConfigModal";
-import NetworkButton from "./components/NetworkButton";
-import NetworkDetailModal from "./components/NetworkDetailModal";
+import ConfigButton from "./components/ConfigButton";
+import ConfigDetailModal from "./components/ConfigDetailModal";
 
-const info = callable<[], NodeStatus>("info");
-// const listNetworks = callable<[], Network[]>("list_networks");
+const info = callable<[], RunStatus>("info");
+const listConfigs = callable<[], ConfigStatus[]>("list_configs");
+const setSingboxStatus = callable<[boolean]>("toggle_singbox");
 
 /**
  * The main component of the plugin, responsible for displaying the service status and managing the network operations.
@@ -30,20 +33,20 @@ const info = callable<[], NodeStatus>("info");
  */
 function Content() {
   // State variables for storing node status, network list, and modal result
-  const [nodeState, setNodeState] = useState<NodeStatus>({ address: "None", online: false, version: 'None' });
-  const [networks, setNetworks] = useState<Network[]>([]);
+  const [runState, setRunState] = useState<RunStatus>({ binary_version: "", online: false, config: '' });
+  const [configs, setConfigs] = useState<ConfigStatus[]>([]);
   const [modalResult, setModalResult] = useState<ShowModalResult | null>(null);
 
   // Fetch node status and network list from the ZeroTier API every 5 seconds
   useEffect(() => {
     const fetchData = async () => {
       info().then(response => {
-        setNodeState(response);
+        setRunState(response);
       });
 
-      // listNetworks().then(response => {
-      //   setNetworks(response.map(network => network as Network));
-      // })
+      listConfigs().then(response =>{
+        setConfigs(response.map(configs => configs as ConfigStatus));
+      })
 
       // toaster.toast({title: "Connected to ZeroTier", body: "Version: " + nodeState.version})
     };
@@ -62,38 +65,52 @@ function Content() {
   };
 
   // Open the network detail modal and update the modal result state
-  const openDetailModal = (network: Network) => {
-    const result = showModal(<NetworkDetailModal network={network} closeModal={closeModal} />);
+  const openDetailModal = (configs: ConfigStatus) => {
+    const result = showModal(<ConfigDetailModal config={configs} closeModal={closeModal} />);
     setModalResult(result);
   };
+
+  const handleRunStateOnChange = (status: boolean) => {
+    setRunState(prevState => ({ ...prevState, online: status }));
+    setSingboxStatus(status);
+  };
+
 
   // Close the current modal and refresh the network list
   const closeModal = () => {
     modalResult?.Close();
     setModalResult(null);
 
-    // listNetworks().then(response => {
-    //   setNetworks(response.map(network => network as Network));
-    // })
-  };
+    listConfigs().then(response =>{
+      setConfigs(response.map(configs => configs as ConfigStatus));
+    })
+};
 
   // Render the plugin's content
   return (
     <div>
       <PanelSection title="Service">
         <PanelSectionRow>
-          {"My Address: " + nodeState.address}<br />
-          {"Status: " + nodeState.online}<br />
-          {"Version: " + nodeState.version}<br />
+          {"Sing-box: " + runState.binary_version}<br />
+          {"Status: " + runState.online}<br />
+          {"Config: " + runState.config}<br />
         </PanelSectionRow>
         <PanelSectionRow>
-          <DialogButton onClick={openAddModal}>Join New Network...</DialogButton>
+        <ToggleField label="Start Sing-box" disabled={runState.binary_version.length==0 || runState.config.length==0} checked={runState.online} onChange={(val) => handleRunStateOnChange(val)} />
+        </PanelSectionRow>
+        <PanelSectionRow>
+        <DialogButton disabled={!runState.online} onClick={() =>{
+            Navigation.NavigateToExternalWeb("http://127.0.0.1:9090/ui")
+          }}>Open WebUI</DialogButton>
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <DialogButton onClick={openAddModal}>Add New Config Profile</DialogButton>
         </PanelSectionRow>
       </PanelSection>
-      <PanelSection title="Networks">
-        {networks.map(net =>
+      <PanelSection title="Profiles">
+        {configs.map(cfg =>
           <PanelSectionRow>
-            <NetworkButton network={net} onClick={() => openDetailModal(net)} />
+            <ConfigButton config={cfg} onClick={() => openDetailModal(cfg)} />
           </PanelSectionRow>
         )}
       </PanelSection>

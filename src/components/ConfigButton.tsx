@@ -1,14 +1,14 @@
 import { FaRegSquareCheck, FaRegSquare, FaRegSquareMinus, FaGear } from 'react-icons/fa6';
 
-import { Network } from '../model';
+import { ConfigStatus } from '../model';
 import { DialogButton, Field } from '@decky/ui';
-const NetworkStatusIcon: React.FC<{ status: string }> = ({ status }) => {
+const NetworkStatusIcon: React.FC<{ status: boolean }> = ({ status }) => {
   const size = 20;
 
   switch (status) {
-    case 'OK':
+    case true:
       return <FaRegSquareCheck size={size} />;
-    case 'DISCONNECTED':
+    case false:
       return <FaRegSquare size={size} />;
     default:
       return <FaRegSquareMinus size={size} />;
@@ -23,16 +23,16 @@ const NetworkStatusIcon: React.FC<{ status: string }> = ({ status }) => {
  *
  * @returns A React element representing the network button.
  */
-const NetworkButton: React.FC<{ network: Network, onClick: () => void }> = ({ network, onClick }) => {
-  const name = network.name ? network.name : network.status;
+const ConfigButton: React.FC<{ config: ConfigStatus, onClick: () => void }> = ({ config, onClick }) => {
+  const name = config.name ? config.name : config.selected;
 
   return (
     <Field
       label={<>
         <style>{`.dz-network-label { padding: 0px; margin: 0px; } .dz-network-label > div:nth-of-type(2) { margin-top: 4px; }`}</style>
-        <Field label={name} description={network.id} className='dz-network-label' bottomSeparator='none' />
+        <Field label={name} description={config.url} className='dz-network-label' bottomSeparator='none' />
       </>}
-      icon={<NetworkStatusIcon status={network.status} />}
+      icon={<NetworkStatusIcon status={config.selected} />}
       childrenLayout='inline'
     >
       <DialogButton onClick={onClick} style={{ minWidth: 'unset', padding: '10px', lineHeight: '12px' }}>
@@ -42,4 +42,4 @@ const NetworkButton: React.FC<{ network: Network, onClick: () => void }> = ({ ne
   )
 };
 
-export default NetworkButton;
+export default ConfigButton;

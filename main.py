@@ -4,9 +4,11 @@ from os.path import dirname
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 from helpers import get_ssl_context # type: ignore
+from settings import SettingsManager  # type: ignore
 from pathlib import Path
 import json
 import asyncio
+import re
 from subprocess import CalledProcessError
 
 # The decky plugin module is located at decky-loader/plugin
@@ -14,11 +16,30 @@ from subprocess import CalledProcessError
 # or add the `decky-loader/plugin` path to `python.analysis.extraPaths` in `.vscode/settings.json`
 import decky
 
+# Force LD_LIBRARY_PATH to include system paths for libssl
+env = os.environ.copy()
+env['LD_LIBRARY_PATH'] = '/usr/lib:/usr/lib64'
+
 SB_BINARY = os.path.join(decky.DECKY_PLUGIN_DIR, 'bin', 'sing-box')
+SB_BINARY_FOLDER = os.path.join(decky.DECKY_PLUGIN_DIR, 'bin')
 SB_HOME = decky.DECKY_PLUGIN_SETTINGS_DIR
-SB_CONF = os.path.join(SB_HOME, 'config.json')
 
 class Plugin:
+
+    async def _main(self):
+        decky.logger.info('Starting Decky-SBox...')
+
+        self.settings = SettingsManager(name="deckysbox", settings_directory=decky.DECKY_PLUGIN_SETTINGS_DIR)
+        enabled = self.get_setting("enable",False)
+        if enabled:
+            decky.logger.info('Starting Sing-box on startup...')
+            await self.start_singbox()
+        else:
+            decky.logger.info('Stop Sing-box on startup...')
+            await self.stop_singbox()
+
+
+
     # @staticmethod
     # async def zerotier_cli(command: list[str]) -> tuple[bytes, bytes]:
     #     """
@@ -82,13 +103,234 @@ class Plugin:
     
     async def info(self) -> dict:
         running = False
-        for x in os.popen('pgrep sing-box'):
-            if x:
-                running = True
-                break
-        return {"address":"testing123","online":running,"version":"8.8"}
+        if not os.path.exists(SB_BINARY):
+            version = await self.check_and_extract_singbox()
+        else:
+            version = self.get_setting("version","")
+            for x in os.popen('pgrep sing-box'):
+                if x:
+                    running = True
+                    break
+        use_config = self.get_setting("use_config","")
+        return {"binary_version":version,"online":running,"config":use_config}
+
+    async def list_configs(self) -> list:
+        configs = self.get_setting("configs",{})
+        use_config = self.get_setting("use_config","")
+        resp = []
+        for name,detail in configs.items():
+            tmp = {
+                "name": name,
+                "url": detail["url"],
+                "selected": True if use_config==name else False,
+                "valid": True,
+            }
+            resp.append(tmp)
+        return resp
+
+    async def refresh_config(self,config_name: str) -> bool:
+        configs = self.get_setting("configs",{})
+        cur_in_use_config = self.get_setting("use_config","")
+        if configs.get(config_name):
+            result = await self.download_file(configs[config_name]["url"],SB_HOME,"{}.json".format(config_name))
+            decky.logger.info(f'Refreshed config {configs[config_name]["url"]} {result}')
+            if result:
+                if cur_in_use_config==config_name:
+                    # We need to restart sing-box
+                    pass
+                return True
+        return False
+    
+    async def delete_config(self,config_name: str) -> bool:
+        configs = self.get_setting("configs",{})
+        cur_in_use_config = self.get_setting("use_config","")
+        if configs.get(config_name):
+            if os.path.exists(Path(SB_HOME) / "{}.json".format(config_name)):
+                os.remove(Path(SB_HOME) / "{}.json".format(config_name))
+                decky.logger.info(f'Removed config {Path(SB_HOME) / "{}.json".format(config_name)}')
+                configs.pop(config_name,None)
+                self.set_setting("configs",configs)
+                if cur_in_use_config==config_name:
+                    # We need to stop sing-box then delete
+                    self.set_setting("use_config","")
+                    pass
+                return True
+        return False
+
+    async def update_config(self,config_name: str,config_key: str, config_value) -> bool:
+        configs = self.get_setting("configs",{})
+        cur_in_use_config = self.get_setting("use_config","")
+        if configs.get(config_name):
+            if config_key=="selected":
+                selected = config_value
+                if selected and cur_in_use_config!=config_name:
+                    # We switched select status
+                    cur_in_use_config = config_name
+                    self.set_setting("use_config",cur_in_use_config)
+                    # We need to restart sing-box to take effect
+                elif not selected and cur_in_use_config==config_name:
+                    cur_in_use_config=""
+                    self.set_setting("use_config",cur_in_use_config)
+                    # We need to stop sing-box to take effect
+            decky.logger.info(f'Updated config {config_name} {config_key} -> {config_value}')
+            return True
+        return False
 
 
+    async def download_config(self,config_name: str, config_url: str) -> bool:
+        configs = self.get_setting("configs",{})
+        decky.logger.info(f'config settings {configs}')
+        cur_in_use_config = self.get_setting("use_config","")
+
+
+        result = await self.download_file(config_url,SB_HOME,"{}.json".format(config_name))
+        decky.logger.info(f'Downloaded config {config_url} {result}')
+        if result:
+            configs[config_name]={"url":config_url}
+            self.set_setting("configs",configs)
+            if cur_in_use_config=="":
+                self.set_setting("use_config",config_name)
+            decky.logger.info(f'config settings after update {configs}')
+            return True
+        return False
+    
+    def parse_and_modify_config(self,config_name) -> bool:
+        log_config={
+            "level": "warn",
+            "timestamp": True
+        }
+        webui_config={
+            "external_controller": "127.0.0.1:9090",
+            "external_ui": os.path.join(SB_HOME,"web"),
+            "secret": "",
+            "default_mode": "rule"
+        }
+        tun_config={
+        "type": "tun",
+        "tag": "tun-in",
+        "interface_name": "tun0",
+        "address": [
+            "172.18.0.1/30",
+            "fdfe:dcba:9876::1/126"
+        ],
+        "mtu": 9000,
+        "gso": True,
+        "auto_route": True,
+        "strict_route": True,
+        "route_address": [
+            "0.0.0.0/1",
+            "128.0.0.0/1",
+            "::/1",
+            "8000::/1"
+        ],
+        "route_exclude_address": [
+            "192.168.0.0/16",
+            "fc00::/7"
+        ],
+        "stack": "system",
+        "platform": {
+            "http_proxy": {
+                "enabled": False,
+                "server": "127.0.0.1",
+                "server_port": 8080,
+                "bypass_domain": [],
+                "match_domain": []
+            }
+        }
+        }
+
+        if os.path.exists(os.path.join(SB_HOME,f'{config_name}.json')):
+            config_info = {}
+            try:
+                with open(os.path.join(SB_HOME,f'{config_name}.json'),"r") as file:
+                    config_info=json.load(file)
+            except Exception as e:
+                decky.logger.error(f"config file open fail: {os.path.join(SB_HOME,f'{config_name}.json')} {e.msg}")
+                return False
+            config_info["log"]=log_config
+            if not config_info.get("experimental"):
+                config_info["experimental"]={}
+            config_info["experimental"]["clash_api"]=webui_config
+            if not config_info.get("inbounds"):
+                config_info["inbounds"]={}
+            modify_pos = -1
+            for i in range(0,len(config_info["inbounds"])):
+                if config_info["inbounds"][i]["type"]=="tun":
+                    modify_pos = i
+                    break
+            if modify_pos>=0:
+                config_info["inbounds"][modify_pos]=tun_config
+            else:
+                config_info["inbounds"].append(tun_config)
+            with open(os.path.join(SB_HOME,f'running_config.json'),"w") as file:
+                json.dump(config_info,file)
+            decky.logger.info(f"Modified config save to: {os.path.join(SB_HOME,f'running_config.json')}")
+            return True
+        return False
+    
+    async def check_and_extract_singbox(self) -> str:
+        extracted = False
+        if not os.path.exists(SB_BINARY):
+            files = os.listdir(SB_BINARY_FOLDER)
+            for file_name in files:
+                if re.match(r'^sing-box.*amd64\.tar\.gz$',file_name):
+                    decky.logger.info(f"tar xzvf {os.path.join(SB_BINARY_FOLDER,file_name)} --strip-components=1 -C {SB_BINARY_FOLDER}")
+                    proc = await asyncio.create_subprocess_exec(
+                        "tar", "xzvf", os.path.join(SB_BINARY_FOLDER,file_name),"--strip-components=1", "-C", SB_BINARY_FOLDER,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.STDOUT,
+                        env=env
+                    )
+                    await proc.communicate()
+                    extracted = True
+                    break
+        if os.path.exists(SB_BINARY):
+            if extracted:
+                # Update version in settings
+                output = os.popen(f"{SB_BINARY} version")
+                for line in output:
+                    result = re.search(r"sing-box version (.+)",line)
+                    if result:
+                        version = result[1].strip()
+                        self.set_setting("version",version)
+                        decky.logger.info(f"Sing Box version: {version}")
+                        return version
+
+    async def start_singbox(self) -> bool:
+        if not os.path.exists(SB_BINARY):
+            await self.check_and_extract_singbox()
+        if os.path.exists(SB_BINARY):
+            cur_in_use_config = self.get_setting("use_config","")
+            if cur_in_use_config:
+                result =self.parse_and_modify_config(cur_in_use_config)
+                if result:
+                    proc = await asyncio.create_subprocess_exec(
+                        "nohup", SB_BINARY,"run","-D",SB_HOME,"-c", os.path.join(SB_HOME,f'running_config.json'),"&",
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.STDOUT,
+                        env=env
+                    )
+                    # os.popen(f"nohup {SB_BINARY} run -c {os.path.join(SB_HOME,f'running_config.json')} &")
+                    return True
+        else:
+            decky.logger.info("Couldn't find sing-box binary")
+            return False
+        return False
+    async def stop_singbox(self):
+        for pid in os.popen('pgrep sing-box'):
+            if pid:
+                os.popen(f'kill {pid}')
+                return True
+        return False
+    
+    async def toggle_singbox(self,status):
+        if status == True:
+            await self.stop_singbox()
+            await self.start_singbox()
+        elif status == False:
+            await self.stop_singbox()
+        self.set_setting("enable",status)
+    
     async def download_file(self, url='', output_dir='', file_name=''):
         decky.logger.debug({url, output_dir, file_name})
         try:
@@ -230,11 +472,6 @@ class Plugin:
     #     return networks
     
 
-    async def download_config(self, config_url: str) -> bool:
-        status = await self.download_file(config_url,SB_HOME,"config-sb.json")
-        decky.logger.info(f'Downloaded config {config_url} {status}')
-        return status
-    
     # async def disconnect_network(self, network_id: str) -> list[dict]:
     #     """
     #     Disconnects from a ZeroTier network with the specified network ID.
@@ -355,22 +592,11 @@ class Plugin:
         pass
 
     # Migrations that should be performed before entering `_main()`.
-    async def _migration(self) -> None:
-        pass
-        # decky.logger.info('Migrating')
-        # # Here's a migration example for logs:
-        # # - `~/.config/decky-template/template.log` will be migrated to `decky.decky_LOG_DIR/template.log`
-        # decky.migrate_logs(os.path.join(decky.DECKY_USER_HOME,
-        #                                        '.config', 'decky-template', 'template.log'))
-        # # Here's a migration example for settings:
-        # # - `~/homebrew/settings/template.json` is migrated to `decky.decky_SETTINGS_DIR/template.json`
-        # # - `~/.config/decky-template/` all files and directories under this root are migrated to `decky.decky_SETTINGS_DIR/`
-        # decky.migrate_settings(
-        #     os.path.join(decky.DECKY_HOME, 'settings', 'template.json'),
-        #     os.path.join(decky.DECKY_USER_HOME, '.config', 'decky-template'))
-        # # Here's a migration example for runtime data:
-        # # - `~/homebrew/template/` all files and directories under this root are migrated to `decky.decky_RUNTIME_DIR/`
-        # # - `~/.local/share/decky-template/` all files and directories under this root are migrated to `decky.decky_RUNTIME_DIR/`
-        # decky.migrate_runtime(
-        #     os.path.join(decky.DECKY_HOME, 'template'),
-        #     os.path.join(decky.DECKY_USER_HOME, '.local', 'share', 'decky-template'))
+    def set_setting(self, key, value):
+        self.settings.setSetting(key, value)
+
+    def get_setting(self, key, fallback):
+        return self.settings.getSetting(key, fallback)
+
+    async def _migration(self):
+        decky.migrate_settings(str(Path(decky.DECKY_HOME) / "settings" / "deckysbox.json"))

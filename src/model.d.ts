@@ -1,7 +1,7 @@
-export interface NodeStatus {
-  address: string;
+export interface RunStatus {
+  binary_version: string;
   online: boolean;
-  version: string;
+  config: string;
 }
 
 export interface Network {
@@ -16,4 +16,11 @@ export interface Network {
   portDeviceName: string;
   status: string;
   type: string;
+}
+
+export interface ConfigStatus {
+  name: string;
+  url: string;
+  selected: boolean;
+  valid: boolean;
 }
