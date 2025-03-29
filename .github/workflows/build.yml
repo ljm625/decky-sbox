@@ -1,0 +1,57 @@
+name: Build Plugin
+
+on:
+  workflow_dispatch:
+  push:
+    tags: '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: pnpm/action-setup@v3
+      with:
+        version: 9.4.0
+
+    - name: Download Decky CLI
+      run: |
+        mkdir /tmp/decky-cli
+        curl -L -o /tmp/decky-cli/decky "https://github.com/SteamDeckHomebrew/cli/releases/download/0.0.7/decky-linux-x86_64"
+        chmod +x /tmp/decky-cli/decky
+
+        echo "/tmp/decky-cli" >> $GITHUB_PATH
+    
+    - name: Build plugin
+      run: |
+        echo "::group::Building plugin $plugin"
+
+        sudo $(which decky) plugin build -b -s directory -o ./out
+
+        echo "::endgroup::"
+
+    - name: Download Sing-box
+      run: |
+        echo "::group::Download Singbox $plugin"
+
+        mkdir out/bin
+        
+        curl -L -o ./out/bin/sing-box-1.11.6-linux-amd64.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v1.11.6/sing-box-1.11.6-linux-amd64.tar.gz"
+
+        echo "::endgroup::"
+
+    - name: Extract version
+      run: |
+        VERSION=$(grep version package.json | cut -d\" -f 4)
+        sudo mv "out/decky-sbox.zip" "out/decky-sbox-v${VERSION}.zip"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: 'v${{ env.VERSION }}'
+        name: 'Decky Sbox v${{ env.VERSION }}'
+        draft: false
+        prerelease: false
+        files: "out/decky-zerotier-v${{ env.VERSION }}.zip"
