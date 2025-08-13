@@ -109,10 +109,10 @@ class Plugin:
             version = await self.check_and_extract_singbox()
         else:
             version = self.get_setting("version","")
-            for x in os.popen('pgrep sing-box'):
-                if x:
-                    running = True
-                    break
+        for x in os.popen('pgrep sing-box'):
+            if x:
+                running = True
+                break
         use_config = self.get_setting("use_config","")
         return {"binary_version":version,"online":running,"config":use_config}
 
