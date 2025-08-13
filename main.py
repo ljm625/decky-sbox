@@ -10,6 +10,7 @@ import json
 import asyncio
 import re
 from subprocess import CalledProcessError
+import psutil
 
 # The decky plugin module is located at decky-loader/plugin
 # For easy intellisense checkout the decky-loader code one directory up
@@ -104,14 +105,18 @@ class Plugin:
                 break
     
     async def info(self) -> dict:
+        decky.logger.info('SBOX Getting RUNNING STATUS...')
         running = False
         if not os.path.exists(SB_BINARY):
+            decky.logger.info('SBOX not exist, installing...')
             version = await self.check_and_extract_singbox()
         else:
             version = self.get_setting("version","")
-        for x in os.popen('pgrep sing-box'):
-            if x:
+        decky.logger.info('SBOX version is: {}'.format(version))
+        for proc in psutil.process_iter():
+            if proc.name().lower()=="sing-box":
                 running = True
+                decky.logger.info('SBOX running')
                 break
         use_config = self.get_setting("use_config","")
         return {"binary_version":version,"online":running,"config":use_config}
