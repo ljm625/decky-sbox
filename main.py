@@ -209,42 +209,26 @@ class Plugin:
         webui_config={
             "external_controller": "127.0.0.1:9090",
             "external_ui": os.path.join(SB_HOME,"web"),
+            "external_ui_download_url": "https://mirror.ghproxy.com/https://github.com/ljm625/ToMoon/releases/download/v0.1/gh-pages.zip",
             "secret": "",
             "default_mode": "rule"
         }
         tun_config={
-        "type": "tun",
-        "tag": "tun-in",
-        "interface_name": "tun0",
-        "address": [
-            "172.18.0.1/30",
-            "fdfe:dcba:9876::1/126"
-        ],
-        "mtu": 9000,
-        "gso": True,
-        "auto_route": True,
-        "strict_route": True,
-        "route_address": [
-            "0.0.0.0/1",
-            "128.0.0.0/1",
-            "::/1",
-            "8000::/1"
-        ],
-        "route_exclude_address": [
-            "192.168.0.0/16",
-            "fc00::/7"
-        ],
-        "sniff":True,
-        "stack": "system",
-        "platform": {
-            "http_proxy": {
+            "type": "tun",
+            "address": [
+                "172.19.0.0/30"
+            ],
+            "mtu": 9000,
+            "auto_route": True,
+            "strict_route": True,
+            "stack": "system",
+            "platform": {
+                "http_proxy": {
                 "enabled": False,
                 "server": "127.0.0.1",
-                "server_port": 8080,
-                "bypass_domain": [],
-                "match_domain": []
+                "server_port": 2080
+                }
             }
-        }
         }
 
         if os.path.exists(os.path.join(SB_HOME,f'{config_name}.json')):
