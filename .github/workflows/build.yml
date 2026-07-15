@@ -19,13 +19,13 @@ jobs:
       run: |
         echo "::group::Download Singbox $plugin"
         mkdir -p ./bin
-        curl -L -o ./bin/sing-box-1.11.6-linux-amd64.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v1.11.6/sing-box-1.11.6-linux-amd64.tar.gz"
+        curl -L -o ./bin/sing-box-1.13.14-linux-amd64.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v1.13.14/sing-box-1.13.14-linux-amd64.tar.gz"
         echo "::endgroup::"
 
     - name: Download Decky CLI
       run: |
         mkdir /tmp/decky-cli
-        curl -L -o /tmp/decky-cli/decky "https://github.com/SteamDeckHomebrew/cli/releases/download/0.0.7/decky-linux-x86_64"
+        curl -L -o /tmp/decky-cli/decky "https://github.com/SteamDeckHomebrew/cli/releases/download/0.0.8/decky-linux-x86_64"
         chmod +x /tmp/decky-cli/decky
 
         echo "/tmp/decky-cli" >> $GITHUB_PATH
