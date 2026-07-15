@@ -209,7 +209,8 @@ class Plugin:
         webui_config={
             "external_controller": "127.0.0.1:9090",
             "external_ui": os.path.join(SB_HOME,"web"),
-            "external_ui_download_url": "https://mirror.ghproxy.com/https://github.com/ljm625/ToMoon/releases/download/v0.1/gh-pages.zip",
+            "external_ui_download_url": "https://github.com/ljm625/ToMoon/releases/download/v0.1/gh-pages.zip",
+            "external_ui_download_detour": "proxy",
             "secret": "",
             "default_mode": "rule"
         }
