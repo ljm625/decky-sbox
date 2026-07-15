@@ -52,4 +52,4 @@ jobs:
         name: 'Decky Sbox v${{ env.VERSION }}'
         draft: false
         prerelease: false
-        files: "out/decky-zerotier-v${{ env.VERSION }}.zip"
+        files: "out/decky-sbox-v${{ env.VERSION }}.zip"
