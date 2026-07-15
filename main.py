@@ -599,6 +599,9 @@ class Plugin:
         # TODO: Clean up your plugin's resources here
         pass
 
+    async def start_timer(self):
+        self.loop.create_task(self.long_running())
+
     # Migrations that should be performed before entering `_main()`.
     def set_setting(self, key, value):
         self.settings.setSetting(key, value)
