@@ -17,9 +17,10 @@ import psutil
 # or add the `decky-loader/plugin` path to `python.analysis.extraPaths` in `.vscode/settings.json`
 import decky
 
-# Force LD_LIBRARY_PATH to include system paths for libssl
+# Keep Decky Loader's bundled libraries out of host executables.
 env = os.environ.copy()
 env['LD_LIBRARY_PATH'] = '/usr/lib:/usr/lib64'
+env.pop('LD_PRELOAD', None)
 
 SB_BINARY = os.path.join(decky.DECKY_PLUGIN_DIR, 'bin', 'sing-box')
 SB_BINARY_FOLDER = os.path.join(decky.DECKY_PLUGIN_DIR, 'bin')
@@ -280,8 +281,14 @@ class Plugin:
         if os.path.exists(SB_BINARY):
             if extracted:
                 # Update version in settings
-                output = os.popen(f"{SB_BINARY} version")
-                for line in output:
+                proc = await asyncio.create_subprocess_exec(
+                    SB_BINARY, "version",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                    env=env
+                )
+                stdout, _ = await proc.communicate()
+                for line in stdout.decode("utf-8", errors="replace").splitlines():
                     result = re.search(r"sing-box version (.+)",line)
                     if result:
                         version = result[1].strip()
@@ -310,11 +317,30 @@ class Plugin:
             return False
         return False
     async def stop_singbox(self):
-        for pid in os.popen('pgrep sing-box'):
-            if pid:
-                os.popen(f'kill {pid}')
-                return True
-        return False
+        decky.logger.info("Start shutdown singbox")
+        stopped = False
+        for proc in psutil.process_iter(["pid", "name"]):
+            try:
+                if (proc.info["name"] or "").lower() != "sing-box":
+                    continue
+
+                decky.logger.info(f"singbox PID: {proc.pid}")
+                proc.terminate()
+                try:
+                    await asyncio.to_thread(proc.wait, timeout=5)
+                except psutil.TimeoutExpired:
+                    decky.logger.warning(
+                        f"sing-box PID {proc.pid} did not stop after SIGTERM; sending SIGKILL"
+                    )
+                    proc.kill()
+                    await asyncio.to_thread(proc.wait, timeout=5)
+                decky.logger.info(f"Stopped sing-box PID {proc.pid}")
+                stopped = True
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as error:
+                decky.logger.warning(
+                    f"Unable to stop sing-box PID {proc.pid}: {error}"
+                )
+        return stopped
     
     async def toggle_singbox(self,status):
         if status == True:
